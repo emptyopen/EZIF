@@ -1,116 +1,241 @@
-// Copyright 2018 The Flutter team. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
 import 'package:flutter/material.dart';
-import 'package:english_words/english_words.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() => runApp(MyApp());
+import './status.dart';
+import './calorie.dart';
+import './weight.dart';
 
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Startup Name Generator',
+void main() => runApp(MaterialApp(
+      home: MyApp(),
       theme: ThemeData(
-        primaryColor: Colors.white,
+        canvasColor: Colors.grey[600],
+        iconTheme: IconThemeData(
+          color: Colors.white,
+        ),
+        accentColor: Colors.greenAccent,
+        brightness: Brightness.dark,
       ),
-      home: RandomWords(),
+    ));
+
+class MyApp extends StatefulWidget {
+  @override
+  MyAppState createState() => MyAppState();
+}
+
+class MyAppState extends State<MyApp> with TickerProviderStateMixin {
+  AnimationController controller;
+
+  String get timerString {
+    Duration duration = controller.duration * controller.value;
+    return '${(duration.inHours).toString().padLeft(2, '0')}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}:${(duration.inSeconds % 3600 % 60).toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    controller = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: 10000),
     );
   }
-}
-
-class RandomWords extends StatefulWidget {
-  @override
-  RandomWordsState createState() => RandomWordsState();
-}
-
-class RandomWordsState extends State<RandomWords> {
-  final _suggestions = <WordPair>[];
-  final Set<WordPair> _saved = Set<WordPair>();
-  final _biggerFont = const TextStyle(fontSize: 18.0);
 
   @override
   Widget build(BuildContext context) {
+    ThemeData themeData = Theme.of(context);
+    var mode = 'READY';
+    Color color = Colors.greenAccent;
+    var calories = [100, 200, 300, 500];
+
+    CalorieDialog _calorieDialog = new CalorieDialog();
+    WeightDialog _weightDialog = new WeightDialog();
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Startup Name Generator'),
-        actions: <Widget>[
-          IconButton(icon: Icon(Icons.list), onPressed: _pushSaved),
-        ],
-      ),
-      body: _buildSuggestions(),
-    );
-  }
+        resizeToAvoidBottomPadding: false,
+        // TODO: bottomNavigationBar: BottomNavigationBar(items: null),
+        body: Container(
+          child: Padding(
+            padding: EdgeInsets.all(30.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                // Status circle
+                mode != 'READY'
+                    ? Expanded(
+                        child: Align(
+                          alignment: FractionalOffset.center,
+                          child: AspectRatio(
+                            aspectRatio: 1.0,
+                            child: Stack(
+                              children: <Widget>[
+                                Positioned.fill(
+                                  child: AnimatedBuilder(
+                                    animation: controller,
+                                    builder:
+                                        (BuildContext context, Widget child) {
+                                      return CustomPaint(
+                                          painter: TimerPainter(
+                                        animation: controller,
+                                        backgroundColor: Colors.white,
+                                        color: themeData.indicatorColor,
+                                      ));
+                                    },
+                                  ),
+                                ),
+                                Align(
+                                  alignment: FractionalOffset.center,
+                                  child: Column(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: <Widget>[
+                                      Text(''),
+                                      Text(
+                                        mode,
+                                        style: TextStyle(fontSize: 30),
+                                      ),
+                                      AnimatedBuilder(
+                                          animation: controller,
+                                          builder: (BuildContext context,
+                                              Widget child) {
+                                            return Text(
+                                              timerString,
+                                              style: TextStyle(
+                                                fontSize: 70,
+                                              ),
+                                            );
+                                          }),
+                                      Text('')
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    : Expanded(
+                        child: Align(
+                          alignment: FractionalOffset.center,
+                          child: AspectRatio(
+                            aspectRatio: 1.0,
+                            child: Stack(
+                              children: <Widget>[
+                                Positioned.fill(
+                                  child: AnimatedBuilder(
+                                    animation: controller,
+                                    builder:
+                                        (BuildContext context, Widget child) {
+                                      return CustomPaint(
+                                          painter: TimerPainter(
+                                        animation: controller,
+                                        backgroundColor: Colors.white,
+                                        color: themeData.indicatorColor,
+                                      ));
+                                    },
+                                  ),
+                                ),
+                                Align(
+                                  alignment: FractionalOffset.center,
+                                  child: Column(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: <Widget>[
+                                      Text(''),
+                                      Text(
+                                        mode,
+                                        style: TextStyle(fontSize: 30),
+                                      ),
+                                      Text(
+                                        '',
+                                        style: TextStyle(
+                                          fontSize: 70,
+                                        ),
+                                      ),
+                                      Text('')
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
 
-  void _pushSaved() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) {
-          final Iterable<ListTile> tiles = _saved.map(
-                (WordPair pair) {
-              return ListTile(
-                title: Text(
-                  pair.asPascalCase,
-                  style: _biggerFont,
-                ),
-              );
-            },
-          );
-          final List<Widget> divided = ListTile
-              .divideTiles(
-            context: context,
-            tiles: tiles,
-          )
-              .toList();
-
-          return Scaffold(
-            appBar: AppBar(
-              title: Text('Saved Suggestions'),
+                CalorieCount(color: color),
+                Card(
+                    margin: EdgeInsets.fromLTRB(60, 5, 60, 5),
+                    child: ListTile(
+                      title: Center(child: Text("Add your meal")),
+                      onTap: () {
+                          if (controller.isAnimating)
+                            controller.stop();
+                          else {
+                            controller.reverse(
+                                from: controller.value == 0.0
+                                    ? 1.0
+                                    : controller.value);
+                          }
+                          setState(() {
+                            mode = 'EATING';
+                          });
+                          print('yo: ${mode}');
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (BuildContext context) => _calorieDialog,
+                              fullscreenDialog: true,
+                            ));
+                      },
+                    )),
+                Card(
+                    margin: EdgeInsets.fromLTRB(60, 5, 60, 5),
+                    child: ListTile(
+                      title: Center(child: Text("Add your weight")),
+                      onTap: () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (BuildContext context) => _weightDialog,
+                              fullscreenDialog: true,
+                            ));
+                      },
+                    )),
+                /*Container(
+              margin: EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  FloatingActionButton(
+                    child: AnimatedBuilder(
+                      animation: controller,
+                      builder: (BuildContext context, Widget child) {
+                        return Icon(controller.isAnimating
+                            ? Icons.pause
+                            : Icons.play_arrow);
+                      },
+                    ),
+                    onPressed: () {
+                      if (controller.isAnimating)
+                        controller.stop();
+                      else {
+                        controller.reverse(
+                            from: controller.value == 0.0
+                                ? 1.0
+                                : controller.value);
+                      }
+                    },
+                  )
+                ],
+              ),
+            ),*/
+              ],
             ),
-            body: ListView(children: divided),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSuggestions() {
-
-    return ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemBuilder: /*1*/ (context, i) {
-          if (i.isOdd) return Divider(); /*2*/
-
-          final index = i ~/ 2; /*3*/
-          if (index >= _suggestions.length) {
-            _suggestions.addAll(generateWordPairs().take(10)); /*4*/
-          }
-          return _buildRow(_suggestions[index]);
-        });
-  }
-
-  Widget _buildRow(WordPair pair) {
-    final bool alreadySaved = _saved.contains(pair);
-    return ListTile(
-      title: Text(
-        pair.asPascalCase,
-        style: _biggerFont,
-      ),
-      trailing: Icon(
-        alreadySaved ? Icons.favorite : Icons.favorite_border,
-        color: alreadySaved ? Colors.red : null,
-      ),
-      onTap: () {
-        setState(() {
-          if (alreadySaved) {
-            _saved.remove(pair);
-          } else {
-            _saved.add(pair);
-          }
-        });
-      }
-    );
+          ),
+          margin: MediaQuery.of(context).padding,
+        ));
   }
 }
 
