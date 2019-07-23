@@ -5,7 +5,8 @@ import './status.dart';
 import './calorie.dart';
 import './weight.dart';
 
-void main() => runApp(MaterialApp(
+void main() =>
+    runApp(MaterialApp(
       home: MyApp(),
       theme: ThemeData(
         canvasColor: Colors.grey[600],
@@ -24,218 +25,117 @@ class MyApp extends StatefulWidget {
 
 class MyAppState extends State<MyApp> with TickerProviderStateMixin {
   AnimationController controller;
-
-  String get timerString {
-    Duration duration = controller.duration * controller.value;
-    return '${(duration.inHours).toString().padLeft(2, '0')}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}:${(duration.inSeconds % 3600 % 60).toString().padLeft(2, '0')}';
-  }
+  var mode = 'READY';
+  Color color = Colors.greenAccent;
+  var calories = {};
+  var calorieSum = 0;
 
   @override
   void initState() {
     super.initState();
     controller = AnimationController(
       vsync: this,
-      duration: Duration(seconds: 10000),
-    );
+      duration: Duration(seconds: 10),
+    )..addStatusListener((AnimationStatus status) {
+      if (status == AnimationStatus.dismissed) {
+        print('completed');
+        // TODO: transition from eating to fasting, and from fasting to ready
+        if (mode == 'EATING') {
+          print('will transition to fasting');
+          controller.duration = Duration(seconds: 20);
+          controller.reverse();
+          // this isn't working
+        }
+      }
+    });
+  }
+
+  _getCalories(BuildContext context) async {
+    var inputCalories = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              CalorieDialog(
+                color: color,
+                controller: controller,
+                mode: mode,
+              ),
+          fullscreenDialog: true,
+        ));
+    calories[DateTime.now()] = inputCalories;
+    calorieSum = calories.entries.where((e) =>
+        e.key.toString()
+            .startsWith('2019-07-22'))
+        .map<int>((e) => e.value)
+        .reduce((a, b) => a + b);
+    print(
+        'received calories: $inputCalories, sum is now: $calorieSum, calories are now: $calories');
+    // start animation and set mode
+    if (!controller.isAnimating && inputCalories != null) {
+      controller.reverse(
+          from: controller.value == 0.0 ? 1.0 : controller.value);
+      setState(() {
+        mode = 'EATING';
+        color = Colors.amberAccent;
+      });
+      print('mode is now: $mode');
+    }
+  }
+
+  _getWeight(BuildContext context) async {
+    var weight = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (BuildContext context) =>
+              WeightDialog(
+                color: color,
+              ),
+          fullscreenDialog: true,
+        ));
+    print('received weight: $weight');
   }
 
   @override
   Widget build(BuildContext context) {
-    ThemeData themeData = Theme.of(context);
-    var mode = 'READY';
-    Color color = Colors.greenAccent;
-    var calories = [100, 200, 300, 500];
-
-    CalorieDialog _calorieDialog = new CalorieDialog();
-    WeightDialog _weightDialog = new WeightDialog();
-
     return Scaffold(
         resizeToAvoidBottomPadding: false,
         // TODO: bottomNavigationBar: BottomNavigationBar(items: null),
+        appBar: AppBar(title: Text('EZIF'),),
         body: Container(
           child: Padding(
             padding: EdgeInsets.all(30.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                // Status circle
-                mode != 'READY'
-                    ? Expanded(
-                        child: Align(
-                          alignment: FractionalOffset.center,
-                          child: AspectRatio(
-                            aspectRatio: 1.0,
-                            child: Stack(
-                              children: <Widget>[
-                                Positioned.fill(
-                                  child: AnimatedBuilder(
-                                    animation: controller,
-                                    builder:
-                                        (BuildContext context, Widget child) {
-                                      return CustomPaint(
-                                          painter: TimerPainter(
-                                        animation: controller,
-                                        backgroundColor: Colors.white,
-                                        color: themeData.indicatorColor,
-                                      ));
-                                    },
-                                  ),
-                                ),
-                                Align(
-                                  alignment: FractionalOffset.center,
-                                  child: Column(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: <Widget>[
-                                      Text(''),
-                                      Text(
-                                        mode,
-                                        style: TextStyle(fontSize: 30),
-                                      ),
-                                      AnimatedBuilder(
-                                          animation: controller,
-                                          builder: (BuildContext context,
-                                              Widget child) {
-                                            return Text(
-                                              timerString,
-                                              style: TextStyle(
-                                                fontSize: 70,
-                                              ),
-                                            );
-                                          }),
-                                      Text('')
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
-                    : Expanded(
-                        child: Align(
-                          alignment: FractionalOffset.center,
-                          child: AspectRatio(
-                            aspectRatio: 1.0,
-                            child: Stack(
-                              children: <Widget>[
-                                Positioned.fill(
-                                  child: AnimatedBuilder(
-                                    animation: controller,
-                                    builder:
-                                        (BuildContext context, Widget child) {
-                                      return CustomPaint(
-                                          painter: TimerPainter(
-                                        animation: controller,
-                                        backgroundColor: Colors.white,
-                                        color: themeData.indicatorColor,
-                                      ));
-                                    },
-                                  ),
-                                ),
-                                Align(
-                                  alignment: FractionalOffset.center,
-                                  child: Column(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: <Widget>[
-                                      Text(''),
-                                      Text(
-                                        mode,
-                                        style: TextStyle(fontSize: 30),
-                                      ),
-                                      Text(
-                                        '',
-                                        style: TextStyle(
-                                          fontSize: 70,
-                                        ),
-                                      ),
-                                      Text('')
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                Status(controller: controller, color: color, mode: mode,),
 
-                CalorieCount(color: color),
-                Card(
-                    margin: EdgeInsets.fromLTRB(60, 5, 60, 5),
-                    child: ListTile(
-                      title: Center(child: Text("Add your meal")),
-                      onTap: () {
-                          if (controller.isAnimating)
-                            controller.stop();
-                          else {
-                            controller.reverse(
-                                from: controller.value == 0.0
-                                    ? 1.0
-                                    : controller.value);
-                          }
-                          setState(() {
-                            mode = 'EATING';
-                          });
-                          print('yo: ${mode}');
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (BuildContext context) => _calorieDialog,
-                              fullscreenDialog: true,
-                            ));
-                      },
-                    )),
-                Card(
-                    margin: EdgeInsets.fromLTRB(60, 5, 60, 5),
-                    child: ListTile(
-                      title: Center(child: Text("Add your weight")),
-                      onTap: () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (BuildContext context) => _weightDialog,
-                              fullscreenDialog: true,
-                            ));
-                      },
-                    )),
-                /*Container(
-              margin: EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: <Widget>[
-                  FloatingActionButton(
-                    child: AnimatedBuilder(
-                      animation: controller,
-                      builder: (BuildContext context, Widget child) {
-                        return Icon(controller.isAnimating
-                            ? Icons.pause
-                            : Icons.play_arrow);
-                      },
-                    ),
-                    onPressed: () {
-                      if (controller.isAnimating)
-                        controller.stop();
-                      else {
-                        controller.reverse(
-                            from: controller.value == 0.0
-                                ? 1.0
-                                : controller.value);
-                      }
-                    },
-                  )
-                ],
-              ),
-            ),*/
+                CalorieCount(color: color, calorieSum: calorieSum),
+                Column(
+                  children: <Widget>[
+                    Card(
+                        margin: EdgeInsets.fromLTRB(60, 5, 60, 5),
+                        child: ListTile(
+                          title: Center(child: Text("Add meal")),
+                          onTap: () {
+                            _getCalories(context);
+                          },
+                        )),
+                    Card(
+                        margin: EdgeInsets.fromLTRB(60, 5, 60, 5),
+                        child: ListTile(
+                          title: Center(child: Text("Add weight")),
+                          onTap: () {
+                            _getWeight(context);
+                          },
+                        )),
+                  ],
+                ),
               ],
             ),
           ),
-          margin: MediaQuery.of(context).padding,
+          margin: MediaQuery
+              .of(context)
+              .padding,
         ));
   }
 }
-

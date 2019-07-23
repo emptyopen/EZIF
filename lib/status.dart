@@ -3,9 +3,10 @@ import 'dart:math' as math;
 
 class Status extends StatefulWidget {
   final Color color;
-  final AnimationController controller;
+  AnimationController controller;
+  String mode;
 
-  const Status({Key key, this.color, this.controller}): super(key: key);
+  Status({Key key, this.color, this.controller, this.mode}): super(key: key);
 
   @override
   _StatusState createState() => _StatusState();
@@ -20,13 +21,9 @@ class _StatusState extends State<Status> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.all(8.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: <Widget>[
-      Expanded(
-      child: Align(
+    return
+      widget.mode != 'READY'
+          ? Align(
         alignment: FractionalOffset.center,
         child: AspectRatio(
           aspectRatio: 1.0,
@@ -35,12 +32,13 @@ class _StatusState extends State<Status> {
               Positioned.fill(
                 child: AnimatedBuilder(
                   animation: widget.controller,
-                  builder: (BuildContext context, Widget child) {
+                  builder:
+                      (BuildContext context, Widget child) {
                     return CustomPaint(
                         painter: TimerPainter(
                           animation: widget.controller,
                           backgroundColor: Colors.white,
-                          color: Colors.pinkAccent,
+                          color: widget.color,
                         ));
                   },
                 ),
@@ -48,36 +46,82 @@ class _StatusState extends State<Status> {
               Align(
                 alignment: FractionalOffset.center,
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment:
+                  MainAxisAlignment.spaceEvenly,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
+                    Text(''),
                     Text(
-                      "EATING",
-                      style: TextStyle(
-                          fontSize: 30
-                      ),
+                      widget.mode,
+                      style:
+                      TextStyle(fontSize: 30, color: widget.color),
                     ),
                     AnimatedBuilder(
                         animation: widget.controller,
-                        builder: (BuildContext context, Widget child) {
+                        builder: (BuildContext context,
+                            Widget child) {
                           return Text(
                             timerString,
                             style: TextStyle(
-                              fontSize: 70,
+                              fontSize: 60,
+                              color: widget.color,
                             ),
                           );
                         }),
-                    Text(
-                        ''
-                    )
+                    Text('')
                   ],
                 ),
               ),
             ],
           ),
         ),
-      ),
-    )]));
+      )
+          : Align(
+        alignment: FractionalOffset.center,
+        child: AspectRatio(
+          aspectRatio: 1.0,
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: widget.controller,
+                  builder:
+                      (BuildContext context, Widget child) {
+                    return CustomPaint(
+                        painter: TimerPainter(
+                          animation: widget.controller,
+                          backgroundColor: Colors.white,
+                          color: widget.color,
+                        ));
+                  },
+                ),
+              ),
+              Align(
+                alignment: FractionalOffset.center,
+                child: Column(
+                  mainAxisAlignment:
+                  MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    Text(''),
+                    Text(
+                      widget.mode,
+                      style: TextStyle(fontSize: 30),
+                    ),
+                    Text(
+                      '',
+                      style: TextStyle(
+                        fontSize: 70,
+                      ),
+                    ),
+                    Text('')
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
   }
 }
 
@@ -95,14 +139,14 @@ class TimerPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     Paint paint = Paint()
       ..color = backgroundColor
-      ..strokeWidth = 5.0
+      ..strokeWidth = 20.0
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
     canvas.drawCircle(size.center(Offset.zero), size.width / 2.0, paint);
     paint.color = color;
     double progress = (1.0 - animation.value) * 2 * math.pi;
-    canvas.drawArc(Offset.zero & size, math.pi * 1.5, -progress, false, paint);
+    canvas.drawArc(Offset.zero & size, math.pi * 1.5, progress, false, paint);
   }
 
   @override

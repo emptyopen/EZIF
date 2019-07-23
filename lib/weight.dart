@@ -1,37 +1,41 @@
 import 'package:flutter/material.dart';
 
 class WeightDialog extends StatefulWidget {
+  final Color color;
+
+  WeightDialog({this.color});
+
   @override
-  WeightDialogState createState() => new WeightDialogState();
+  WeightDialogState createState() => WeightDialogState();
 }
 
 class WeightDialogState extends State<WeightDialog> {
   String _weight = '0';
-  TextEditingController _weightController = new TextEditingController();
+  TextEditingController _weightController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
-    return new Scaffold(
-        appBar: new AppBar(
-          title: new Text("Add weight"),
+    return Scaffold(
+        appBar: AppBar(
+          title: Text("Add weight"),
         ),
-        body: new Padding(
-          child: new ListView(
+        body: Padding(
+          child: ListView(
             children: <Widget>[
-              new TextField(
+              TextField(
                 controller: _weightController,
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
               ),
-              new Row(
+              Row(
                 children: <Widget>[
-                  new Expanded(
-                      child: new RaisedButton(
+                  Expanded(
+                      child: RaisedButton(
                         onPressed: () {
                           _weight = _weightController.text;
-                          Navigator.pop(context);
+                          Navigator.pop(context, _weight);
                         },
-                        color: Colors.greenAccent,
-                        child: new Text("Save"),
+                        color: widget.color,
+                        child: Text("Save"),
                       ))
                 ],
               )
