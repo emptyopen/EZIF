@@ -20,6 +20,13 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: AnonymousPro
+      fonts:
+        - asset: assets/AnonymousPro-Regular.ttf
+    - family: Quicksand
+      fonts:
+        - asset: assets/Quicksand-Regular.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

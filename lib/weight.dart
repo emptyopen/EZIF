@@ -35,7 +35,7 @@ class WeightDialogState extends State<WeightDialog> {
                           Navigator.pop(context, _weight);
                         },
                         color: widget.color,
-                        child: Text("Save"),
+                        child: Text("Save", style: TextStyle(color: Colors.black),),
                       ))
                 ],
               )

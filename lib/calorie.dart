@@ -11,7 +11,7 @@ class CalorieCount extends StatelessWidget {
     var totalCalories = 2200;
     return Container(
       margin: EdgeInsets.fromLTRB(0, 10, 0, 10),
-      height: 70,
+      height: 80,
       width: 300,
       decoration: BoxDecoration(
           borderRadius: BorderRadius.all(const Radius.circular(10.0)),
@@ -30,7 +30,7 @@ class CalorieCount extends StatelessWidget {
               )),
           totalCalories - calorieSum >= 0 ?
           Text('left to eat!', style: TextStyle(fontSize: 18)):
-          Text('overeaten!', style: TextStyle(fontSize: 18)),
+          Text('overeaten!', style: TextStyle(fontSize: 18, color: Colors.pinkAccent)),
         ],
       ),
       alignment: Alignment(0, 0),
@@ -50,8 +50,16 @@ class CalorieDialog extends StatefulWidget {
 }
 
 class CalorieDialogState extends State<CalorieDialog> {
-  String _calories = '0';
+  int _calories = 0;
+  bool _shouldShowError = false;
   TextEditingController _caloriesController = TextEditingController();
+
+  bool _isNumeric(String str) {
+    if(str == null) {
+      return false;
+    }
+    return double.tryParse(str) != null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,8 +79,8 @@ class CalorieDialogState extends State<CalorieDialog> {
                   children: List.generate(15, (index) {
                     return GestureDetector(
                         onTap: () {
-                          ;
-                          Navigator.pop(context, index * 100 + 100);
+                          _calories = index * 100 + 100;
+                          Navigator.pop(context, _calories);
                         },
                         child: Container(
                           margin: EdgeInsets.all(2),
@@ -102,13 +110,23 @@ class CalorieDialogState extends State<CalorieDialog> {
                       child: RaisedButton(
                         color: widget.color,
                         onPressed: () {
-                          _calories = _caloriesController.text;
-                          Navigator.pop(context, _calories);
+                          if (this._isNumeric(_caloriesController.text)) {
+                            _calories = int.parse(_caloriesController.text);
+                            setState(() {
+                              _shouldShowError = false;
+                            });
+                            Navigator.pop(context, _calories);
+                          } else {
+                            setState(() {
+                              _shouldShowError = true;
+                            });
+                          }
                         },
-                        child: Text("Save"),
+                        child: Text("Save", style: TextStyle(color: Colors.black),),
                       ))
                 ],
-              )
+              ),
+              if(_shouldShowError) Text('Calories must be numeric.'),
             ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 20.0),

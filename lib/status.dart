@@ -26,7 +26,7 @@ class _StatusState extends State<Status> {
           ? Align(
         alignment: FractionalOffset.center,
         child: AspectRatio(
-          aspectRatio: 1.0,
+          aspectRatio: 1,
           child: Stack(
             children: <Widget>[
               Positioned.fill(
@@ -54,7 +54,7 @@ class _StatusState extends State<Status> {
                     Text(
                       widget.mode,
                       style:
-                      TextStyle(fontSize: 30, color: widget.color),
+                      TextStyle(fontSize: 40, color: widget.color),
                     ),
                     AnimatedBuilder(
                         animation: widget.controller,
@@ -103,18 +103,10 @@ class _StatusState extends State<Status> {
                   MainAxisAlignment.spaceEvenly,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
-                    Text(''),
                     Text(
                       widget.mode,
-                      style: TextStyle(fontSize: 30),
+                      style: TextStyle(fontSize: 50),
                     ),
-                    Text(
-                      '',
-                      style: TextStyle(
-                        fontSize: 70,
-                      ),
-                    ),
-                    Text('')
                   ],
                 ),
               ),
