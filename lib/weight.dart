@@ -10,8 +10,15 @@ class WeightDialog extends StatefulWidget {
 }
 
 class WeightDialogState extends State<WeightDialog> {
-  String _weight = '0';
+  bool _shouldShowError = false;
   TextEditingController _weightController = TextEditingController();
+
+  bool _isNumeric(String str) {
+    if(str == null) {
+      return false;
+    }
+    return double.tryParse(str) != null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,14 +38,24 @@ class WeightDialogState extends State<WeightDialog> {
                   Expanded(
                       child: RaisedButton(
                         onPressed: () {
-                          _weight = _weightController.text;
-                          Navigator.pop(context, _weight);
+                          if (this._isNumeric(_weightController.text)) {
+                            var _weight = int.parse(_weightController.text);
+                            setState(() {
+                              _shouldShowError = false;
+                            });
+                            Navigator.pop(context, _weight);
+                          } else {
+                            setState(() {
+                              _shouldShowError = true;
+                            });
+                          }
                         },
                         color: widget.color,
                         child: Text("Save", style: TextStyle(color: Colors.black),),
                       ))
                 ],
-              )
+              ),
+              if(_shouldShowError) Text('Weight must be numeric.'),
             ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 20.0),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/scheduler.dart';
 
 import './status.dart';
 import './calorie.dart';
@@ -26,7 +27,7 @@ class MyApp extends StatefulWidget {
   MyAppState createState() => MyAppState();
 }
 
-class MyAppState extends State<MyApp> with TickerProviderStateMixin {
+class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
   AnimationController controller;
   var mode = 'READY';
   var eatEndTime = '';
@@ -34,21 +35,11 @@ class MyAppState extends State<MyApp> with TickerProviderStateMixin {
   var maxDailyCalories = 2000;
   Color color = Colors.greenAccent;
   var calories = {};
+  var weight = {};
   var calorieSum = 0;
-  var _result;
-  bool isLoading = true;
-
-  _readInt(key, defaultVal) async {
-    final prefs = await SharedPreferences.getInstance();
-    final value = prefs.getInt(key) ?? defaultVal;
-    print('read $key: $value');
-  }
-
-  _readString(key, defaultVal) async {
-    final prefs = await SharedPreferences.getInstance();
-    final value = prefs.getString(key) ?? defaultVal;
-    print('read $key: $value');
-  }
+  bool isLoading = false;
+  int eatingSeconds = 10;
+  int fastingSeconds = 20;
 
   _save(key, val) async {
     final prefs = await SharedPreferences.getInstance();
@@ -57,35 +48,29 @@ class MyAppState extends State<MyApp> with TickerProviderStateMixin {
   }
 
   loadAsyncData() async {
-    mode = await _readString('mode', 'READY');
-    eatEndTime = await _readString('eatEndTime', DateTime.now().toString());
-    fastEndTime = await _readString('fastEndTime', DateTime.now().toString());
-    maxDailyCalories = await _readInt('maxDailyCalories', 2000);
-
-    print('init: mode[$mode], eatEndTime[$eatEndTime], fastEndTime[$fastEndTime], maxDailyCalories[$maxDailyCalories]');
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      maxDailyCalories = (prefs.getInt('maxCalories') ?? 2000);
+      mode = (prefs.getString('mode') ?? 'READY');
+      eatEndTime = (prefs.getString('eatEndTime') ?? DateTime.now().toString());
+      fastEndTime = (prefs.getString('fastEndTime') ?? DateTime.now().toString());
+    });
   }
 
   @override
   void initState() {
     super.initState();
 
-    loadAsyncData().then((result) {
-      // If we need to rebuild the widget with the resulting data,
-      // make sure to use `setState`
-      setState(() {
-        _result = result;
-        isLoading = false;
-      });
-    });
+    loadAsyncData();
 
     controller = AnimationController(
       vsync: this,
-      duration: Duration(seconds: 10),
+      duration: Duration(seconds: eatingSeconds),
     )..addStatusListener((AnimationStatus status) {
       if (status == AnimationStatus.dismissed) {
         if (mode == 'EATING') {
           print('will transition to fasting');
-          controller.duration = Duration(seconds: 10);
+          controller.duration = Duration(seconds: fastingSeconds);
           controller.reverse(
               from: controller.value == 0.0 ? 1.0 : controller.value);
           setState(() {
@@ -94,7 +79,7 @@ class MyAppState extends State<MyApp> with TickerProviderStateMixin {
           });
         } else if (mode == 'FASTING') {
           print('will transition to ready');
-          controller.duration = Duration(seconds: 5);
+          controller.duration = Duration(seconds: eatingSeconds);
           setState(() {
             mode = 'READY';
             color = Colors.greenAccent;
@@ -119,7 +104,6 @@ class MyAppState extends State<MyApp> with TickerProviderStateMixin {
 
     if (inputCalories != null) {
       calories[DateTime.now()] = inputCalories;
-      print(calories);
       var today = DateTime.now();
       String dateSlug = '${today.year.toString()}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}';
       calorieSum = calories.entries.where((e) =>
@@ -127,8 +111,7 @@ class MyAppState extends State<MyApp> with TickerProviderStateMixin {
               .startsWith(dateSlug))
           .map<int>((e) => e.value)
           .reduce((a, b) => a + b);
-      print(
-          'received calories: $inputCalories, sum is now: $calorieSum, calories are now: $calories');
+      print('received calories: $inputCalories, sum is now: $calorieSum, calories are now: $calories');
       // start animation and set mode
       if (!controller.isAnimating && inputCalories != null) {
         controller.reverse(
@@ -143,7 +126,7 @@ class MyAppState extends State<MyApp> with TickerProviderStateMixin {
   }
 
   _getWeight(BuildContext context) async {
-    var weight = await Navigator.push(
+    var inputWeight = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (BuildContext context) =>
@@ -152,12 +135,25 @@ class MyAppState extends State<MyApp> with TickerProviderStateMixin {
               ),
           fullscreenDialog: true,
         ));
-    print('received weight: $weight');
+    if (inputWeight != null) {
+      weight[DateTime.now()] = inputWeight;
+      print('received weight: $inputWeight, weights: $weight');
+    }
+  }
+
+  _getSettings(BuildContext context) async {
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              SettingsPage(color: color),
+          fullscreenDialog: true,
+        ));
+    loadAsyncData();
   }
 
   @override
   Widget build(BuildContext context) {
-    print('hey $mode');
     return
       isLoading ?
           Scaffold() :
@@ -185,13 +181,7 @@ class MyAppState extends State<MyApp> with TickerProviderStateMixin {
               color: color,
               size: 30,),
             onPressed: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        SettingsPage(),
-                    fullscreenDialog: true,
-                  ));
+              _getSettings(context);
             },
           )
         ],),
@@ -203,21 +193,21 @@ class MyAppState extends State<MyApp> with TickerProviderStateMixin {
               children: <Widget>[
                 Status(controller: controller, color: color, mode: mode,),
 
-                CalorieCount(color: color, calorieSum: calorieSum),
+                CalorieCount(color: color, calorieSum: calorieSum, maxDailyCalories: maxDailyCalories,),
                 Column(
                   children: <Widget>[
                     Card(
                         margin: EdgeInsets.fromLTRB(60, 5, 60, 5),
                         child: ListTile(
-                          title: Center(child: Text("Add meal", style: TextStyle(fontSize: 22),)),
+                          title: Center(child: Text("++ MEAL ++", style: TextStyle(fontSize: 24),)),
                           onTap: () {
                             _getCalories(context);
                           },
                         )),
                     Card(
-                        margin: EdgeInsets.fromLTRB(60, 5, 60, 5),
+                        margin: EdgeInsets.fromLTRB(80, 15, 80, 5),
                         child: ListTile(
-                          title: Center(child: Text("Add weight", style: TextStyle(fontSize: 22),)),
+                          title: Center(child: Text("++ WEIGHT ++", style: TextStyle(fontSize: 18),)),
                           onTap: () {
                             _getWeight(context);
                           },
@@ -230,4 +220,10 @@ class MyAppState extends State<MyApp> with TickerProviderStateMixin {
           ),
         ));
   }
+}
+
+
+mixin NonStopTickerProviderMixin implements TickerProvider {
+  @override
+  Ticker createTicker(TickerCallback onTick) => Ticker(onTick);
 }

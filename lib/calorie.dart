@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 class CalorieCount extends StatelessWidget {
   final Color color;
+  var maxDailyCalories;
   var calorieSum;
 
-  CalorieCount({this.color, this.calorieSum});
+  CalorieCount({this.color, this.calorieSum, this.maxDailyCalories});
 
   @override
   Widget build(BuildContext context) {
-    var totalCalories = 2200;
     return Container(
       margin: EdgeInsets.fromLTRB(0, 10, 0, 10),
       height: 80,
@@ -19,16 +19,16 @@ class CalorieCount extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          totalCalories - calorieSum >= 0 ?
-          Text('${totalCalories - calorieSum} calories',
+          maxDailyCalories - calorieSum >= 0 ?
+          Text('${maxDailyCalories - calorieSum} calories',
               style: TextStyle(
                 fontSize: 24,
               )) :
-          Text('${(totalCalories - calorieSum).abs()} calories',
+          Text('${(maxDailyCalories - calorieSum).abs()} calories',
               style: TextStyle(
                 fontSize: 24,
               )),
-          totalCalories - calorieSum >= 0 ?
+          maxDailyCalories - calorieSum >= 0 ?
           Text('left to eat!', style: TextStyle(fontSize: 18)):
           Text('overeaten!', style: TextStyle(fontSize: 18, color: Colors.pinkAccent)),
         ],
