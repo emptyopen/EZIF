@@ -11,8 +11,8 @@ class SettingsPage extends StatefulWidget {
 }
 
 class SettingsPageState extends State<SettingsPage> {
-  int _maxCalories = 2000;
-  TextEditingController _maxCaloriesController = TextEditingController();
+  int _maxDailyCalories = 2000;
+  TextEditingController _maxDailyCaloriesController = TextEditingController();
   bool _shouldShowError = false;
 
   @override
@@ -24,13 +24,13 @@ class SettingsPageState extends State<SettingsPage> {
   loadSettings() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      _maxCalories = (prefs.getInt('maxCalories') ?? 2200);
+      _maxDailyCalories = (prefs.getInt('maxDailyCalories') ?? 2200);
     });
   }
 
   setSettings() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setInt('maxCalories', _maxCalories);
+    prefs.setInt('maxDailyCalories', _maxDailyCalories);
   }
 
   bool _isNumeric(String str) {
@@ -51,11 +51,11 @@ class SettingsPageState extends State<SettingsPage> {
             children: <Widget>[
               Center(
                   child: Text(
-                'Maximum daily calories: $_maxCalories',
+                'Maximum daily calories: $_maxDailyCalories',
                 style: TextStyle(fontSize: 20),
               )),
               TextField(
-                controller: _maxCaloriesController,
+                controller: _maxDailyCaloriesController,
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
               ),
               Row(
@@ -63,10 +63,10 @@ class SettingsPageState extends State<SettingsPage> {
                   Expanded(
                       child: RaisedButton(
                     onPressed: () {
-                      if (this._isNumeric(_maxCaloriesController.text)) {
+                      if (this._isNumeric(_maxDailyCaloriesController.text)) {
                         setState(() {
-                          _maxCalories = int.parse(_maxCaloriesController.text);
-                          _maxCaloriesController.clear();
+                          _maxDailyCalories = int.parse(_maxDailyCaloriesController.text);
+                          _maxDailyCaloriesController.clear();
                           _shouldShowError = false;
                         });
                         setSettings();

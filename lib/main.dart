@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/scheduler.dart';
+import 'dart:convert';
 
 import './status.dart';
 import './calorie.dart';
@@ -35,33 +36,51 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
   var maxDailyCalories = 2000;
   Color color = Colors.greenAccent;
   var calories = {};
-  var weight = {};
+  var weights = {};
   var calorieSum = 0;
   bool isLoading = false;
-  int eatingSeconds = 10;
-  int fastingSeconds = 20;
+  int eatingSeconds = 7;
+  int fastingSeconds = 10;
 
-  _save(key, val) async {
+  // TODO: only save and load what is needed?
+  _saveAsyncData() async {
     final prefs = await SharedPreferences.getInstance();
-    prefs.setInt(key, val);
-    print('saved $key: $val');
+    prefs.setInt('maxDailyCalories', maxDailyCalories);
+    prefs.setString('mode', mode);
+    prefs.setString('color', color.toString());
+    //prefs.setString('eatEndTime', value);
+    //prefs.setString('fastEndTime', value);
+    print('storing ${json.encode(calories)}');
+    prefs.setString('calories', json.encode(calories));
+    prefs.setInt('calorieSum', calorieSum);
+    prefs.setString('weights', json.encode(weights));
   }
 
-  loadAsyncData() async {
+  _loadAsyncData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      maxDailyCalories = (prefs.getInt('maxCalories') ?? 2000);
-      mode = (prefs.getString('mode') ?? 'READY');
-      eatEndTime = (prefs.getString('eatEndTime') ?? DateTime.now().toString());
-      fastEndTime = (prefs.getString('fastEndTime') ?? DateTime.now().toString());
+      maxDailyCalories = prefs.getInt('maxDailyCalories') ?? 2000;
+      //mode = prefs.getString('mode') ?? 'READY';
+      //color = _convertStringToColor(prefs.getString('color')) ?? Colors.greenAccent;
+      eatEndTime = prefs.getString('eatEndTime') ?? DateTime.now().toString();
+      fastEndTime = prefs.getString('fastEndTime') ?? DateTime.now().toString();
+      calories = json.decode(prefs.getString('calories')) ?? {};
+      calorieSum = prefs.getInt('calorieSum') ?? 0;
+      weights = json.decode(prefs.getString('weights'))?? {};
     });
+  }
+
+  _convertStringToColor(colorString) {
+    String valueString = colorString.split('(0x')[1].split(')')[0];
+    int value = int.parse(valueString, radix: 16);
+    return Color(value);
   }
 
   @override
   void initState() {
     super.initState();
 
-    loadAsyncData();
+    _loadAsyncData();
 
     controller = AnimationController(
       vsync: this,
@@ -69,14 +88,16 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
     )..addStatusListener((AnimationStatus status) {
       if (status == AnimationStatus.dismissed) {
         if (mode == 'EATING') {
-          print('will transition to fasting');
-          controller.duration = Duration(seconds: fastingSeconds);
-          controller.reverse(
-              from: controller.value == 0.0 ? 1.0 : controller.value);
           setState(() {
             mode = 'FASTING';
             color = Colors.lightBlue;
           });
+          var fastEndTime2 = DateTime.now().add(Duration(hours: 16));
+          // TODO: make this based on stored fastEndTime
+          controller.duration = Duration(seconds: fastingSeconds);
+          controller.reverse(
+              from: controller.value == 0.0 ? 1.0 : controller.value);
+          print('transitioning to fasting: fastEndTime $fastEndTime2');
         } else if (mode == 'FASTING') {
           print('will transition to ready');
           controller.duration = Duration(seconds: eatingSeconds);
@@ -85,6 +106,7 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
             color = Colors.greenAccent;
           });
         }
+        _saveAsyncData();
       }
     });
   }
@@ -103,9 +125,10 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
         ));
 
     if (inputCalories != null) {
-      calories[DateTime.now()] = inputCalories;
       var today = DateTime.now();
       String dateSlug = '${today.year.toString()}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}';
+      calories[DateTime.now().toString()] = inputCalories;
+      // store calories and sum
       calorieSum = calories.entries.where((e) =>
           e.key.toString()
               .startsWith(dateSlug))
@@ -120,7 +143,7 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
           mode = 'EATING';
           color = Colors.pinkAccent;
         });
-        print('mode is now: $mode');
+        _saveAsyncData();
       }
     }
   }
@@ -136,9 +159,23 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
           fullscreenDialog: true,
         ));
     if (inputWeight != null) {
-      weight[DateTime.now()] = inputWeight;
-      print('received weight: $inputWeight, weights: $weight');
+      weights[DateTime.now().toString()] = inputWeight;
+      print('received weight: $inputWeight, weights: $weights');
     }
+    _saveAsyncData();
+    _loadAsyncData();
+  }
+
+  _getHistory(BuildContext context) async {
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              HistoryPage(),
+          fullscreenDialog: true,
+        ));
+    _saveAsyncData();
+    _loadAsyncData();
   }
 
   _getSettings(BuildContext context) async {
@@ -149,7 +186,8 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
               SettingsPage(color: color),
           fullscreenDialog: true,
         ));
-    loadAsyncData();
+    _saveAsyncData();
+    _loadAsyncData();
   }
 
   @override
@@ -167,13 +205,7 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
             color: color,
             size: 30,),
             onPressed: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        HistoryPage(),
-                    fullscreenDialog: true,
-                  ));
+              _getHistory(context);
             },
           ),
           IconButton(
