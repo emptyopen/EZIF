@@ -10,7 +10,7 @@ class CalorieCount extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.fromLTRB(0, 10, 0, 10),
+      margin: EdgeInsets.fromLTRB(0, 20, 0, 10),
       height: 80,
       width: 300,
       decoration: BoxDecoration(
@@ -40,10 +40,9 @@ class CalorieCount extends StatelessWidget {
 
 class CalorieDialog extends StatefulWidget {
   final Color color;
-  AnimationController controller;
-  String mode;
+  String saveUpdate;
 
-  CalorieDialog({this.color, this.controller, this.mode});
+  CalorieDialog({this.color, this.saveUpdate});
 
   @override
   CalorieDialogState createState() => CalorieDialogState();
@@ -65,7 +64,9 @@ class CalorieDialogState extends State<CalorieDialog> {
   Widget build(BuildContext context) {
     return new Scaffold(
         appBar: AppBar(
-          title: Text("Add calories"),
+          title: widget.saveUpdate == 'save' ?
+          Text('Add calories') :
+          Text('Update calories'),
         ),
         body: Padding(
           child: ListView(
@@ -122,7 +123,10 @@ class CalorieDialogState extends State<CalorieDialog> {
                             });
                           }
                         },
-                        child: Text("Save", style: TextStyle(color: Colors.black),),
+                        child:
+                        widget.saveUpdate == 'save' ?
+                        Text("Save", style: TextStyle(color: Colors.black),) :
+                        Text("Update", style: TextStyle(color: Colors.black),),
                       ))
                 ],
               ),
@@ -132,4 +136,53 @@ class CalorieDialogState extends State<CalorieDialog> {
           padding: const EdgeInsets.symmetric(horizontal: 20.0),
         ));
   }
+}
+
+class Calorie {
+  final DateTime date;
+  final double calorie;
+  final double weightAtTime;
+  final bool inBudget;
+  bool selected = false;
+
+  Calorie(this.date, this.calorie, this.weightAtTime, this.inBudget);
+
+  int compareTo(Calorie other) {
+    int order = other.date.compareTo(date);
+    return order;
+  }
+}
+
+class CalorieDataSource extends DataTableSource {
+  final List<Calorie> _calories;
+  final BuildContext context;
+
+  CalorieDataSource(this.context, this._calories);
+
+  int _selectedCount = 0;
+
+  @override
+  DataRow getRow(int index) {
+    assert(index >= 0);
+    if (index >= _calories.length) return null;
+    final Calorie calorie = _calories[index];
+    return DataRow.byIndex(
+        index: index,
+        selected: calorie.selected,
+        onSelectChanged: null,
+        cells: <DataCell>[
+          DataCell(Text('${calorie.date}'), onTap: () => print(calorie.date)),
+          DataCell(Text('${calorie.calorie}'),
+              onTap: () => print(calorie.calorie)),
+        ]);
+  }
+
+  @override
+  int get rowCount => _calories.length;
+
+  @override
+  bool get isRowCountApproximate => false;
+
+  @override
+  int get selectedRowCount => _selectedCount;
 }

@@ -3,9 +3,13 @@ import 'package:charts_flutter/flutter.dart' as charts;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
-// TODO: hard select ranges, range selections (week, month, year)
-// TODO: actually populate weights and calories with real stored data
-// TODO: add calories (bubbles with size of calories)
+import './weight.dart';
+import './calorie.dart';
+
+// TODO: tables: fix screen update after modifications
+// TODO: tables: reverse dates, or allow sorting
+// TODO: plot: hard select ranges, range selections (week, month, year)
+// TODO: plot: add calories (bubbles with size of calories)
 
 class HistoryPage extends StatefulWidget {
   final Color color;
@@ -19,6 +23,7 @@ class HistoryPage extends StatefulWidget {
 class HistoryPageState extends State<HistoryPage> {
   var calories = {};
   var weights = {};
+  var test = 'one';
 
   @override
   void initState() {
@@ -29,186 +34,220 @@ class HistoryPageState extends State<HistoryPage> {
   _loadAsyncData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      calories = json.decode(prefs.getString('calories')) ?? {};
-      weights = json.decode(prefs.getString('weights')) ?? {};
+      String caloriesString = prefs.getString('calories') ?? '';
+      if (caloriesString != '') {
+        calories = json.decode(caloriesString);
+      } else {
+        calories = {};
+      }
+      String weightsString = prefs.getString('weights') ?? '';
+      if (weightsString != '') {
+        weights = json.decode(weightsString);
+      } else {
+        weights = {};
+      }
     });
+  }
+
+  _updateCalories(BuildContext context, _caloriesDataSource) async {
+    var inputCalories = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(title: Text('Update meals')),
+            body: Column(
+              children: <Widget>[
+                PaginatedDataTable(
+                  header: Text('Meal Log'),
+                  dataRowHeight: 30,
+                  headingRowHeight: 30,
+                  rowsPerPage: 10,
+                  columns: <DataColumn>[
+                    DataColumn(
+                      label: Text('Date'),
+                    ),
+                    DataColumn(label: Text('Calories'))
+                  ],
+                  source: _caloriesDataSource,
+                ),
+                RaisedButton(
+                  onPressed: () => setState,
+                  child: Text('hi'),
+                )
+              ],
+            )
+          ),
+          fullscreenDialog: true,
+        ));
+
+    if (inputCalories != null) {
+      print(inputCalories);
+    }
+  }
+
+  _updateWeights(BuildContext context, _weightsDataSource) async {
+    var inputWeight = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(title: Text('Update weights')),
+            body: Column(
+              children: <Widget>[
+                PaginatedDataTable(
+                  header: Text('Weight Log'),
+                  sortColumnIndex: 0,
+                  sortAscending: false,
+                  dataRowHeight: 30,
+                  headingRowHeight: 30,
+                  rowsPerPage: 10,
+                  columns: <DataColumn>[
+                    DataColumn(
+                      label: Text('Date'),
+                    ),
+                    DataColumn(label: Text('Weight'))
+                  ],
+                  source: _weightsDataSource,
+                ),
+                RaisedButton(
+                  onPressed: () {
+                    print('wowowow');
+                    setState(() {
+
+                    });
+
+                  },
+                  child: Text('hi'),
+                )
+              ],
+            )
+          ),
+          fullscreenDialog: true,
+        ));
+
+    if (inputWeight != null) {
+      print(inputWeight);
+    }
+
+    await _loadAsyncData();
   }
 
   @override
   Widget build(BuildContext context) {
+
     //_loadAsyncData();
-    print(weights);
-    var weightData = [
-      Weight(DateTime(2019, 6, 20), 182),
-      Weight(DateTime(2019, 6, 26), 181.9),
-      Weight(DateTime(2019, 6, 29), 184),
-      Weight(DateTime(2019, 6, 30), 182),
-      Weight(DateTime(2019, 7, 1), 180),
-      Weight(DateTime(2019, 7, 2), 182.5),
-      Weight(DateTime(2019, 7, 9), 182.5),
-      Weight(DateTime(2019, 7, 11), 182.1),
-      Weight(DateTime(2019, 7, 17), 182.5),
-      Weight(DateTime(2019, 7, 23), 183.4),
-    ];
-    var _weightsDataSource = WeightDataSource(weightData);
-    var caloriesData = [
-      Calorie(DateTime(2019, 7, 22), 140),
-      Calorie(DateTime(2019, 7, 22), 140),
-      Calorie(DateTime(2019, 7, 22), 140),
-      Calorie(DateTime(2019, 7, 22), 140),
-      Calorie(DateTime(2019, 7, 22), 140),
-      Calorie(DateTime(2019, 7, 22), 140),
-    ];
-    var _caloriesDataSource = CalorieDataSource(caloriesData);
-    var series = [
+
+    List<Weight> weightData = List();
+    weights.forEach((k, v) =>
+        weightData.add(Weight(DateTime.parse(k), double.parse(v.toString()))));
+    weightData.sort((a, b) => a.date.compareTo(b.date));
+    var _weightsDataSource = WeightDataSource(context, weightData);
+    setState(() {
+      _weightsDataSource = WeightDataSource(context, weightData);
+    });
+    var weightSeries = [
       charts.Series<Weight, DateTime>(
         id: 'Weight',
         colorFn: (_, __) => charts.Color.fromHex(code: '#b2ff59'),
         domainFn: (Weight weightData, _) => weightData.date,
-        measureFn: (Weight weightdata, _) => weightdata.weight,
+        measureFn: (Weight weightData, _) => weightData.weight,
         data: weightData,
       ),
     ];
-    var chart = charts.TimeSeriesChart(
-      series,
-      animate: true,
-      domainAxis: charts.DateTimeAxisSpec(
-          tickProviderSpec: charts.DayTickProviderSpec(increments: [5]),
-          tickFormatterSpec: charts.AutoDateTimeTickFormatterSpec(
-              day: charts.TimeFormatterSpec(
-                  format: 'd', transitionFormat: 'MMM dd')),
-          renderSpec: new charts.SmallTickRendererSpec(
-              labelStyle:
-                  charts.TextStyleSpec(color: charts.MaterialPalette.white))),
-      primaryMeasureAxis: charts.NumericAxisSpec(
-          tickProviderSpec: charts.BasicNumericTickProviderSpec(
-              zeroBound: false, desiredMinTickCount: 6),
-          renderSpec: new charts.GridlineRendererSpec(
-              labelStyle:
-                  charts.TextStyleSpec(color: charts.MaterialPalette.white))),
-    );
-    var chartWidget = Padding(
+    var weightChart = Padding(
       padding: EdgeInsets.all(32.0),
       child: SizedBox(
         height: 200.0,
-        child: chart,
+        child: charts.TimeSeriesChart(
+          weightSeries,
+          animate: true,
+          domainAxis: charts.DateTimeAxisSpec(
+              tickProviderSpec: charts.DayTickProviderSpec(increments: [5]),
+              tickFormatterSpec: charts.AutoDateTimeTickFormatterSpec(
+                  day: charts.TimeFormatterSpec(
+                      format: 'd', transitionFormat: 'MMM dd')),
+              renderSpec: new charts.SmallTickRendererSpec(
+                  labelStyle:
+                  charts.TextStyleSpec(color: charts.MaterialPalette.white))),
+          primaryMeasureAxis: charts.NumericAxisSpec(
+              tickProviderSpec: charts.BasicNumericTickProviderSpec(
+                  zeroBound: false, desiredMinTickCount: 6),
+              renderSpec: new charts.GridlineRendererSpec(
+                  labelStyle:
+                  charts.TextStyleSpec(color: charts.MaterialPalette.white))),
+        ),
       ),
     );
 
+
+    // TODO: convert calories to daily calories (red if it is over?)
+    List<Calorie> calorieData = List();
+    if (weightData.length > 0) {
+      calories.forEach((k, v) => calorieData
+          .add(Calorie(DateTime.parse(k), double.parse(v.toString()), weightData[0].weight, true)));
+    }
+    calorieData.sort((a, b) => a.date.compareTo(b.date));
+    var _caloriesDataSource = CalorieDataSource(context, calorieData);
+    setState(() {
+      _caloriesDataSource = CalorieDataSource(context, calorieData);
+    });
+    var calorieSeries = [
+      charts.Series<Calorie, int>(
+        id: 'Calories',
+        colorFn: (_, __) => charts.Color.fromHex(code: '#b2ff59'),
+        domainFn: (Calorie calorieData, _) => calorieData.date.millisecondsSinceEpoch,
+        measureFn: (Calorie calorieData, _) => calorieData.calorie,
+        data: calorieData,
+      ),
+    ];
+    var calorieChart = Padding(
+      padding: EdgeInsets.all(32.0),
+      child: SizedBox(
+        height: 200.0,
+        child: charts.ScatterPlotChart(
+          calorieSeries,
+          animate: true,
+        ),
+      ),
+    );
+
+
     return Scaffold(
         appBar: AppBar(
-          title: Text("History"),
+          title: Text('History'),
         ),
         body: Container(
           child: Column(
             children: <Widget>[
-              Center(child: chartWidget),
-              PaginatedDataTable(
-                  header: Text('Meal Log'),
-                  dataRowHeight: 30,
-                  headingRowHeight: 30,
-                  rowsPerPage: 4,
-                  columns: <DataColumn>[
-                    DataColumn(
-                        label: Text('Date'),),
-                    DataColumn(label: Text('Calories'))
-                  ],
-                  source: _caloriesDataSource,
-              ),
-              PaginatedDataTable(
-                  header: Text('Weight Log'),
-                  dataRowHeight: 30,
-                  headingRowHeight: 30,
-                  rowsPerPage: 3,
-                  columns: <DataColumn>[
-                    DataColumn(
-                        label: Text('Date'),),
-                    DataColumn(label: Text('Weight'))
-                  ],
-                  source: _weightsDataSource,
-              ),
+              //Center(child: calorieChart),
+              Center(child: weightChart),
+              Card(
+                  margin: EdgeInsets.fromLTRB(70, 0, 70, 0),
+                  child: ListTile(
+                    title: Center(
+                        child: Text(
+                      'Update meals',
+                      style: TextStyle(fontSize: 20),
+                    )),
+                    onTap: () {
+                      _updateCalories(context, _caloriesDataSource);
+                    },
+                  )),
+              Card(
+                  margin: EdgeInsets.fromLTRB(70, 20, 70, 0),
+                  child: ListTile(
+                    title: Center(
+                        child: Text(
+                      'Update weights',
+                      style: TextStyle(fontSize: 20),
+                    )),
+                    onTap: () {
+                      _updateWeights(context, _weightsDataSource);
+                    },
+                  )),
             ],
           ),
         ));
   }
 }
 
-class WeightDataSource extends DataTableSource {
-  final List<Weight> _weights;
-  WeightDataSource(this._weights);
-  int _selectedCount = 0;
 
-  @override
-  DataRow getRow(int index) {
-    assert(index >= 0);
-    if (index >= _weights.length) return null;
-    final Weight weight = _weights[index];
-    return DataRow.byIndex(
-        index: index,
-        selected: weight.selected,
-        onSelectChanged: null,
-        cells: <DataCell>[
-          DataCell(Text('${weight.date.year.toString().padLeft(2, '0')}-${weight.date.month.toString().padLeft(2, '0')}-${weight.date.day.toString().padLeft(2, '0')}'),
-          onTap: () => print(weight.date)),
-          DataCell(Text('${weight.weight}'),
-          onTap: () => print(weight.weight)),
-        ]);
-  }
-
-  @override
-  int get rowCount => _weights.length;
-
-  @override
-  bool get isRowCountApproximate => false;
-
-  @override
-  int get selectedRowCount => _selectedCount;
-}
-
-class CalorieDataSource extends DataTableSource {
-  final List<Calorie> _calories;
-  CalorieDataSource(this._calories);
-  int _selectedCount = 0;
-
-  @override
-  DataRow getRow(int index) {
-    assert(index >= 0);
-    if (index >= _calories.length) return null;
-    final Calorie calorie = _calories[index];
-    return DataRow.byIndex(
-        index: index,
-        selected: calorie.selected,
-        onSelectChanged: null,
-        cells: <DataCell>[
-          DataCell(Text('${calorie.date}'),
-              onTap: () => print(calorie.date)),
-          DataCell(Text('${calorie.calorie}'),
-              onTap: () => print(calorie.calorie)),
-        ]);
-  }
-
-  @override
-  int get rowCount => _calories.length;
-
-  @override
-  bool get isRowCountApproximate => false;
-
-  @override
-  int get selectedRowCount => _selectedCount;
-}
-
-class Weight {
-  final DateTime date;
-  final double weight;
-  bool selected = false;
-
-  Weight(this.date, this.weight);
-}
-
-class Calorie {
-  final DateTime date;
-  final double calorie;
-  bool selected = false;
-
-  Calorie(this.date, this.calorie);
-}

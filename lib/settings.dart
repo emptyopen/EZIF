@@ -21,6 +21,12 @@ class SettingsPageState extends State<SettingsPage> {
     loadSettings();
   }
 
+  clearEverything() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    print('cleared all data');
+  }
+
   loadSettings() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -47,6 +53,7 @@ class SettingsPageState extends State<SettingsPage> {
           title: Text("Settings"),
         ),
         body: Container(
+          margin: EdgeInsets.fromLTRB(0, 30, 0, 0),
           child: ListView(
             children: <Widget>[
               Center(
@@ -65,7 +72,8 @@ class SettingsPageState extends State<SettingsPage> {
                     onPressed: () {
                       if (this._isNumeric(_maxDailyCaloriesController.text)) {
                         setState(() {
-                          _maxDailyCalories = int.parse(_maxDailyCaloriesController.text);
+                          _maxDailyCalories =
+                              int.parse(_maxDailyCaloriesController.text);
                           _maxDailyCaloriesController.clear();
                           _shouldShowError = false;
                         });
@@ -83,6 +91,16 @@ class SettingsPageState extends State<SettingsPage> {
                     ),
                   ))
                 ],
+              ),
+              RaisedButton(
+                onPressed: () {
+                  clearEverything();
+                },
+                color: widget.color,
+                child: Text(
+                  "Clear All Data",
+                  style: TextStyle(color: Colors.black),
+                ),
               ),
               if (_shouldShowError) Text('Max daily calories must be numeric.'),
             ],

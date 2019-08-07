@@ -31,56 +31,25 @@ class MyApp extends StatefulWidget {
 class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
   AnimationController controller;
   var mode = 'READY';
-  var eatEndTime = '';
-  var fastEndTime = '';
+  DateTime eatEndTime;
+  DateTime fastEndTime;
+  DateTime lastEaten;
   var maxDailyCalories = 2000;
   Color color = Colors.greenAccent;
   var calories = {};
+  var sortedCalories = [];
   var weights = {};
   var calorieSum = 0;
-  bool isLoading = false;
-  int eatingSeconds = 7;
-  int fastingSeconds = 10;
-
-  // TODO: only save and load what is needed?
-  _saveAsyncData() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setInt('maxDailyCalories', maxDailyCalories);
-    prefs.setString('mode', mode);
-    prefs.setString('color', color.toString());
-    //prefs.setString('eatEndTime', value);
-    //prefs.setString('fastEndTime', value);
-    print('storing ${json.encode(calories)}');
-    prefs.setString('calories', json.encode(calories));
-    prefs.setInt('calorieSum', calorieSum);
-    prefs.setString('weights', json.encode(weights));
-  }
-
-  _loadAsyncData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      maxDailyCalories = prefs.getInt('maxDailyCalories') ?? 2000;
-      //mode = prefs.getString('mode') ?? 'READY';
-      //color = _convertStringToColor(prefs.getString('color')) ?? Colors.greenAccent;
-      eatEndTime = prefs.getString('eatEndTime') ?? DateTime.now().toString();
-      fastEndTime = prefs.getString('fastEndTime') ?? DateTime.now().toString();
-      calories = json.decode(prefs.getString('calories')) ?? {};
-      calorieSum = prefs.getInt('calorieSum') ?? 0;
-      weights = json.decode(prefs.getString('weights'))?? {};
-    });
-  }
-
-  _convertStringToColor(colorString) {
-    String valueString = colorString.split('(0x')[1].split(')')[0];
-    int value = int.parse(valueString, radix: 16);
-    return Color(value);
-  }
+  bool isLoading = true;
+  int eatingSeconds = 60;
+  int fastingSeconds = 60;
+  var allDuration = Duration(minutes: 1);
 
   @override
   void initState() {
     super.initState();
 
-    _loadAsyncData();
+    _loadAsyncData(initTrue: true);
 
     controller = AnimationController(
       vsync: this,
@@ -89,26 +58,193 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
       if (status == AnimationStatus.dismissed) {
         if (mode == 'EATING') {
           setState(() {
+
+            // TODO: this might cause problems
+            sortedCalories = calories.keys.toList();
+            sortedCalories.sort();
+            lastEaten = DateTime.parse(sortedCalories[sortedCalories.length - 1]);
+
             mode = 'FASTING';
             color = Colors.lightBlue;
+            eatEndTime = null;
+            // TODO: add duration from last eaten
+            fastEndTime = DateTime.now().add(allDuration);
           });
-          var fastEndTime2 = DateTime.now().add(Duration(hours: 16));
-          // TODO: make this based on stored fastEndTime
           controller.duration = Duration(seconds: fastingSeconds);
           controller.reverse(
               from: controller.value == 0.0 ? 1.0 : controller.value);
-          print('transitioning to fasting: fastEndTime $fastEndTime2');
         } else if (mode == 'FASTING') {
           print('will transition to ready');
           controller.duration = Duration(seconds: eatingSeconds);
           setState(() {
             mode = 'READY';
             color = Colors.greenAccent;
+            fastEndTime = null;
           });
         }
-        _saveAsyncData();
+        _saveAsyncData('all');
       }
     });
+  }
+
+  _loadAsyncData({bool initTrue: false}) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    print('loading async data');
+    setState(() {
+      // max daily calories
+      maxDailyCalories = prefs.getInt('maxDailyCalories') ?? 2000;
+
+      // mode
+      mode = prefs.getString('mode') ?? 'READY';
+
+      // color
+      color = _convertStringToColor(prefs.getString('color')) ?? Colors.greenAccent;
+
+      // calories
+      String caloriesString = prefs.getString('calories') ?? '';
+      if (caloriesString != '') {
+        calories = json.decode(caloriesString);
+      } else {
+        calories = {};
+      }
+      sortedCalories = calories.keys.toList();
+      sortedCalories.sort();
+      lastEaten = DateTime.parse(sortedCalories[sortedCalories.length - 1]);
+
+      // check if new day for calorieSum
+      _loadCalorieSum();
+
+      // weights
+      String weightsString = prefs.getString('weights') ?? '';
+      if (weightsString != '') {
+        weights = json.decode(weightsString);
+      } else {
+        weights = {};
+      }
+
+      // eating and fasting end times
+      String eatEndTimeString = prefs.getString('eatEndTime') ?? null;
+      String fastEndTimeString = prefs.getString('fastEndTime') ?? null;
+      print('eatEndTimeString: $eatEndTimeString, fastEndTimeString: $fastEndTimeString');
+      if (eatEndTimeString == 'null') {
+        print('eatEndTimeString is null');
+      }
+      if (fastEndTimeString == 'null') {
+        print('fastEndTimeString is null');
+      }
+
+      // check if we are done fasting, if so set to ready
+      if (fastEndTimeString != 'null') {
+        fastEndTime = DateTime.parse(fastEndTimeString);
+        if (eatEndTime.difference(DateTime.now()).inSeconds < 0) {
+          print('we are past fastEndTime... set to ready');
+          mode = 'READY';
+          color = Colors.greenAccent;
+          eatEndTime = null;
+          fastEndTime = null;
+        }
+      } else {
+        fastEndTime = null;
+      }
+
+      // check if we are done eating, if so set to fasting or ready (depending on time since last eaten)
+      if (eatEndTimeString != 'null') {
+        // TODO: make sure this triggers when user opens app after minimizing it - app state https://api.flutter.dev/flutter/dart-ui/AppLifecycleState-class.html
+        eatEndTime = DateTime.parse(eatEndTimeString);
+        if (eatEndTime.difference(DateTime.now()).inSeconds < 0) {
+          print('we are past eatEndTime... find when last eaten and change mode to fasting or ready');
+          print('if we are within 16 hours of last eaten, transition to fasting as relevant, otherwise ready');
+          print('last eaten: $lastEaten');
+
+          // if last eaten is less than 16 hours ago, switch to fasting with partial time
+          if (DateTime.now().difference(lastEaten).inSeconds < 57600) {
+            print('last eaten was less than 16 hours ago, setting to fasting');
+            mode = 'FASTING';
+            color = Colors.lightBlue;
+            eatEndTime = null;
+            fastEndTime = lastEaten.add(allDuration);
+          } else {  // else switch to ready
+            print('last eaten was more than 16 hours ago, setting to ready');
+            mode = 'READY';
+            color = Colors.greenAccent;
+            eatEndTime = null;
+            fastEndTime = null;
+          }
+        }
+      } else {
+        eatEndTime = null;
+      }
+    });
+
+
+    // if we are entering app cold, need to re-adjust animations
+    if (initTrue) {
+
+      print('in initTrue');
+
+      if (eatEndTime != null) {  // we should be eating
+        var eatTimeRemainingFraction = eatEndTime.difference(DateTime.now()).inSeconds / eatingSeconds;
+        print('eatTimeRemainingFraction: $eatTimeRemainingFraction');
+        controller.duration = Duration(seconds: eatingSeconds);
+        controller.reverse(
+            from: eatTimeRemainingFraction); //eatTimeRemainingFraction);
+      } else if (fastEndTime != null) {  // we should be fasting
+        var fastTimeRemainingFraction = fastEndTime.difference(DateTime.now()).inSeconds / fastingSeconds;
+        print('fastTimeRemainingFraction: $fastTimeRemainingFraction');
+        controller.duration = Duration(seconds: fastingSeconds);
+        controller.reverse(
+            from: fastTimeRemainingFraction);
+      }
+    }
+
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  _loadCalorieSum() {
+    var today = DateTime.now();
+    String dateSlug = '${today.year.toString()}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}';
+    try {
+      setState(() {
+        calorieSum = calories.entries.where((e) =>
+            e.key.toString()
+                .startsWith(dateSlug))
+            .map<int>((e) => e.value)
+            .reduce((a, b) => a + b);
+      });
+    } catch (Exception) {
+      print('no daily calories, setting sum to 0');
+      setState(() {
+        calorieSum = 0;
+      });
+    }
+  }
+
+  _saveAsyncData(String key) async {
+    print('saving async data: $key');
+    final prefs = await SharedPreferences.getInstance();
+    if (key == 'maxDailyCalories' || key == 'all') {
+      prefs.setInt('maxDailyCalories', maxDailyCalories);
+    }
+    if (key == 'mode' || key == 'all') {
+      prefs.setString('mode', mode);
+    }
+    if (key == 'color' || key == 'all') {
+      prefs.setString('color', color.toString());
+    }
+    if (key == 'eatEndTime' || key == 'all') {
+      prefs.setString('eatEndTime', eatEndTime.toString());
+    }
+    if (key == 'fastEndTime' || key == 'all') {
+      prefs.setString('fastEndTime', fastEndTime.toString());
+    }
+    if (key == 'calories' || key == 'all') {
+      prefs.setString('calories', json.encode(calories));
+    }
+    if (key == 'weights' || key == 'all') {
+      prefs.setString('weights', json.encode(weights));
+    }
   }
 
   _getCalories(BuildContext context) async {
@@ -118,8 +254,7 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
           builder: (context) =>
               CalorieDialog(
                 color: color,
-                controller: controller,
-                mode: mode,
+                saveUpdate: 'save',
               ),
           fullscreenDialog: true,
         ));
@@ -141,9 +276,14 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
             from: controller.value == 0.0 ? 1.0 : controller.value);
         setState(() {
           mode = 'EATING';
+          eatEndTime = DateTime.now().add(allDuration);
           color = Colors.pinkAccent;
         });
-        _saveAsyncData();
+        _saveAsyncData('calories');
+        _saveAsyncData('mode');
+        _saveAsyncData('eatStartTime');
+        _saveAsyncData('eatEndTime');
+        _saveAsyncData('color');
       }
     }
   }
@@ -155,14 +295,15 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
           builder: (BuildContext context) =>
               WeightDialog(
                 color: color,
+                saveUpdate: 'save',
               ),
           fullscreenDialog: true,
         ));
     if (inputWeight != null) {
       weights[DateTime.now().toString()] = inputWeight;
       print('received weight: $inputWeight, weights: $weights');
+      _saveAsyncData('weights');
     }
-    _saveAsyncData();
     _loadAsyncData();
   }
 
@@ -174,7 +315,6 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
               HistoryPage(),
           fullscreenDialog: true,
         ));
-    _saveAsyncData();
     _loadAsyncData();
   }
 
@@ -186,12 +326,12 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
               SettingsPage(color: color),
           fullscreenDialog: true,
         ));
-    _saveAsyncData();
     _loadAsyncData();
   }
 
   @override
   Widget build(BuildContext context) {
+    print('mode is: $mode');
     return
       isLoading ?
           Scaffold() :
@@ -219,12 +359,11 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
         ],),
         body: Container(
           child: Padding(
-            padding: EdgeInsets.all(30.0),
+            padding: EdgeInsets.fromLTRB(40, 0, 40, 0),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: <Widget>[
                 Status(controller: controller, color: color, mode: mode,),
-
                 CalorieCount(color: color, calorieSum: calorieSum, maxDailyCalories: maxDailyCalories,),
                 Column(
                   children: <Widget>[
@@ -237,20 +376,25 @@ class MyAppState extends State<MyApp> with NonStopTickerProviderMixin {
                           },
                         )),
                     Card(
-                        margin: EdgeInsets.fromLTRB(80, 15, 80, 5),
+                        margin: EdgeInsets.fromLTRB(70, 15, 70, 5),
                         child: ListTile(
-                          title: Center(child: Text("++ WEIGHT ++", style: TextStyle(fontSize: 18),)),
+                          title: Center(child: Text("+ WEIGHT +", style: TextStyle(fontSize: 18),)),
                           onTap: () {
                             _getWeight(context);
                           },
                         )),
                   ],
                 ),
-                Text(''),
               ],
             ),
           ),
         ));
+  }
+
+  _convertStringToColor(colorString) {
+    String valueString = colorString.split('(0x')[1].split(')')[0];
+    int value = int.parse(valueString, radix: 16);
+    return Color(value);
   }
 }
 
